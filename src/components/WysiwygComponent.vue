@@ -1,10 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { onUpdated, reactive } from "vue";
 import { v4 as uuidv4 } from "uuid";
 import BasicSvgIcon from '@/components/UI/BasicSvgIcon.vue';
 import BasicButton from '@/components/UI/BasicButton.vue';
+import WysiwygProps from '@/types/wysiwygProps'
+import ActualCaretPosition from '@/types/ActualCaretPosition'
+import wysiwygProps from '@/types/wysiwygProps';
 
-const props = reactive({
+const thisState = reactive({
   elements: [
     {
       id: uuidv4(),
@@ -31,96 +34,98 @@ const props = reactive({
       tag: "p",
       content: "Товарищи! новая модель организационной деятельности требуют от нас анализа направлений прогрессивного развития. Задача организации, в особенности же постоянный количественный рост и сфера нашей активности требуют от нас анализа позиций, занимаемых участниками в отношении поставленных задач. Задача организации, в особенности же реализация намеченных плановых заданий требуют от нас анализа системы обучения кадров, соответствует насущным потребностям."
     }
-  ]
+  ] as WysiwygProps[]
 });
 
-const history = [];
+const history: WysiwygProps[][] = [];
 
-let actualHistoryIndex = null;
+let actualHistoryIndex: number = null;
 
-let actualCaretPosition = {
+let actualCaretPosition: ActualCaretPosition = {
   id: null,
   position: null
 };
 
-const updateContent = (e, id) => {
-  if (e.target.tagName !== 'IMG' && window.getSelection()) {
+const updateContent = (e: Event, id: string) => {
+  const target = e.target as HTMLElement;
+
+  if (target.tagName !== 'IMG' && window.getSelection()) {
     const select = window.getSelection();
-    const caretPosition = select.getRangeAt(0).startOffset;
+    const caretPosition: number = select.getRangeAt(0).startOffset;
     actualCaretPosition.id = id;
     actualCaretPosition.position = caretPosition;
 
-    const el = props.elements.find(x => x.id === id);
-    if (el.content !== e.target.innerHTML) {
-      el.content = e.target.innerHTML;
-      savestate();
+    const el: WysiwygProps = thisState.elements.find(x => x.id === id);
+    if (el.content !== target.innerHTML) {
+      el.content = target.innerHTML;
+      saveState();
     }
   }
 }
 
-const savestate = () => {
-  const historyElement = [...props.elements];
-  history.push(historyElement);
+const saveState = () => {
+  history.push([...thisState.elements]);
   actualHistoryIndex = history.length - 1;
 }
 
-savestate();
+saveState();
 
-const transformNode = (selRange, node, select, newTag) => {
-  const tag = node.tagName;
-  const arrayOfChunks = [node.innerHTML.slice(0, selRange.startOffset), node.innerHTML.slice(selRange.endOffset)];
-  const tempMarkupArray = [];
+const transformNode = (selRange: {startOffset: number, endOffset: number}, node: HTMLElement, select: string, newTag: string) => {
+  const tag: string = node.tagName;
+  const arrayOfChunks: [string, string] = [node.innerHTML.slice(0, selRange.startOffset), node.innerHTML.slice(selRange.endOffset)];
+  const tempMarkupArray: WysiwygProps[] = [];
 
   arrayOfChunks.forEach(el => {
-    const temp = {
+    const temp: WysiwygProps = {
       id: uuidv4(),
-      tag: tag,
+      tag,
       content: el,
     };
     tempMarkupArray.push(temp);
   })
 
-  const newTagElement = {
+  const newTagElement: WysiwygProps = {
     id: uuidv4(),
     tag: newTag,
     content: select,
   };
 
-  const index = props.elements.findIndex(x => x.id === node.id);
+  const index: number = thisState.elements.findIndex(x => x.id === node.id);
   tempMarkupArray.splice(tempMarkupArray.length - 1, 0, newTagElement);
-  props.elements.splice(index, 1, ...tempMarkupArray.filter(el => el.content.length > 0));
-  savestate();
+  thisState.elements.splice(index, 1, ...tempMarkupArray.filter(el => el.content.length > 0));
+  saveState();
 }
 
-const changeTag = (newTag) => {
+const changeTag = (newTag: string) => {
   if (window.getSelection()) {
     const select = window.getSelection();
     if (select.toString().length > 0) {
       const selRange = select.getRangeAt(0);
-      transformNode(selRange, select.focusNode.parentNode, select.toString(), newTag);
+      const parent = select.focusNode.parentNode as HTMLElement;
+      transformNode(selRange, parent, select.toString(), newTag);
     }
   }
 }
 
 const addImg = () => {
-  const result = prompt('Введите URL изображения с правильным форматом - png, jpg, jpeg, gif, svg', );
+  const result: string = prompt('Введите URL изображения с правильным форматом - png, jpg, jpeg, gif, svg', );
   const urlPattern = new RegExp('(http)?s?:?(\\/\\/[^"\']*\\.(?:png|jpg|jpeg|gif|svg))');
   if (urlPattern.test(result)) {
-    const newTagElement = {
+    const newTagElement: wysiwygProps = {
       id: uuidv4(),
       tag: 'img',
       src: result,
     };
-    props.elements.push(newTagElement);
-    savestate();
+    thisState.elements.push(newTagElement);
+    saveState();
   } else {
     alert('Ошибка: укажите правильный адрес или проверьте расширение файла');
   }
 }
 
 const copyHTML = () => {
-  const copyText = document.querySelector("[data-content]");
-  navigator.clipboard.writeText(copyText.innerHTML).then(
+  const copyText: HTMLElement = document.querySelector("[data-content]");
+  navigator.clipboard.writeText(copyText.innerHTML as string).then(
       () => {
         alert('Скопировано!');
       },
@@ -130,19 +135,18 @@ const copyHTML = () => {
   );
 }
 
-const historyGoTo = (type) => {
+const historyGoTo = (type: string) => {
   if (actualHistoryIndex >= 0 && actualHistoryIndex < history.length) {
-    console.log(type)
     if (type === 'backward' && actualHistoryIndex > 0) {
       actualHistoryIndex -= 1;
     } else if (type === 'forward' ) {
       actualHistoryIndex += 1;
     }
-    props.elements.splice(0, props.elements.length, ...history[actualHistoryIndex]);
+    thisState.elements.splice(0, thisState.elements.length, ...history[actualHistoryIndex]);
   }
 }
 
-const getImage = (imagePath) => {
+const getImage = (imagePath: string) : string => {
   if (imagePath) {
     return (`${imagePath}`)
   }
@@ -150,7 +154,7 @@ const getImage = (imagePath) => {
 
 onUpdated(() => {
   if (actualCaretPosition.id && actualCaretPosition.position) {
-    const el = document.getElementById(`${actualCaretPosition.id}`);
+    const el: HTMLElement = document.getElementById(`${actualCaretPosition.id}`);
     const range = document.createRange();
     const sel = window.getSelection();
     range.setStart(el.firstChild, actualCaretPosition.position);
@@ -228,7 +232,7 @@ onUpdated(() => {
       <div data-parent>
         <component
           :is="element.tag"
-          v-for="element in props.elements"
+          v-for="element in thisState.elements"
           :id="element.id"
           :key="element.id"
           contenteditable

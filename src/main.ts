@@ -1,6 +1,6 @@
 import { createApp } from 'vue';
-import components from '@/components';
 import App from './App.vue';
+import components from '@/components';
 import Vue3Sanitize from "vue-3-sanitize";
 
 const app = createApp(App);
